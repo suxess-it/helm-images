@@ -166,6 +166,16 @@ func (dep *Deployments) Get(dataMap string, _ string, _ *logrus.Logger) (*Image,
 	}
 
 	images.Image = append(images.Image, depContainers.getImagesFromArgs()...)
+	for _, container := range depContainers.containers {
+		for _, env := range container.Env {
+			if strings.HasPrefix(env.Name, "RELATED_IMAGE_") && env.ValueFrom == nil {
+				value := strings.TrimSpace(env.Value)
+				if isImageReference(value) {
+					images.Image = append(images.Image, value)
+				}
+			}
+		}
+	}
 
 	return images, nil
 }

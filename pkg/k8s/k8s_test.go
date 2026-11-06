@@ -152,3 +152,45 @@ data:
 	require.NoError(t, err)
 	assert.Equal(t, []string{"ghcr.io/example/config:v2.3.0"}, images.Image)
 }
+
+func TestDeploymentGetRelatedImages(t *testing.T) {
+	manifest := `apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: keycloak-operator
+spec:
+  template:
+    spec:
+      initContainers:
+        - name: init
+          image: alpine:3.22
+          env:
+            - name: RELATED_IMAGE_INIT
+              value: quay.io/example/init:1
+      containers:
+        - name: operator
+          image: quay.io/keycloak/keycloak-operator:26.8.2
+          env:
+            - name: RELATED_IMAGE_KEYCLOAK
+              value: quay.io/keycloak/keycloak:26.8.2
+            - name: RELATED_IMAGE_EMPTY
+              value: ""
+            - name: RELATED_IMAGE_EXPANDED
+              value: "$(REGISTRY)/keycloak:26.8.2"
+            - name: RELATED_IMAGE_FROM_CONFIG
+              valueFrom:
+                configMapKeyRef:
+                  name: images
+                  key: keycloak
+            - name: OTHER_IMAGE
+              value: quay.io/example/other:1
+`
+	images, err := (&k8s.Deployments{}).Get(manifest, "", logrus.New())
+	require.NoError(t, err)
+	assert.ElementsMatch(t, []string{
+		"alpine:3.22",
+		"quay.io/example/init:1",
+		"quay.io/keycloak/keycloak-operator:26.8.2",
+		"quay.io/keycloak/keycloak:26.8.2",
+	}, images.Image)
+}
